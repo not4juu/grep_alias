@@ -1,0 +1,341 @@
+#!/bin/bash
+
+
+helpmenu()
+{
+	echo "INTRODUCTION
+        grep_alias - provide several function which facilitate grep using
+		at te begining please source the script
+SYNOPSIS
+	grep_lines [OPTION]... [FILE]
+	grep_lines_regex [OPTION]... [FILE]
+	grep_lines_range [OPTION]... [FILE]
+	grep_test 
+
+DESCRIPTION
+	-r  this flag shows all not mateched lines
+	-h  shows help option
+EXAMPLES
+	echo \"Alias\" | grep_lines A B 
+	grep_lines A B file 
+
+	ip a | grep_lines_regex \"([0-9]{1,3}\.){3}[0-9]{1,3}\"
+	grepr\_lines_regex \"([0-9]{1,3}\.){3}[0-9]{1,3}\" ipConfig.cfg
+
+	cat /proc/cpuinfo | grep_lines_range processor cache
+	grep_lines_range Distributor Release lsb_release.cfg "
+}
+
+
+
+#mian run
+if [[ $_ == $0 ]]; then
+		echo "please use -h or --help option to get more information about script"
+	fi 	
+case "$1" in
+		--help | -h)
+				helpmenu
+				;;
+esac
+#----------
+
+
+grep_lines()
+{
+	if [ $# -eq 0  ]; then
+		return 2
+	fi 	
+
+	FLAGS=""
+	
+	case "$1" in
+		--help | -h)
+				helpmenu
+				return 0
+				;;
+		-r )
+				FLAGS='-v'
+				shift
+				;;
+		 -*) return 2
+	esac
+
+	#standard use without pipe option
+  	if [ -t 0 ] ; then 
+		#drop last element as a file 
+		array=( "$@" )
+		unset "array[${#array[@]}-1]"
+
+		#prepare multiple pattern 
+		PATTERN=$(sed -e 's/ /\\|/g' <<< "${array[@]}")
+
+		#execute command depending on flags
+		if [ -z $FLAGS ] ; then 
+			grep "$PATTERN" "${@: -1}" ; 
+		else 
+			grep "$FLAGS" "$PATTERN" "${@: -1}" ; 
+		fi
+
+	# run with pipe stdin
+	STR=""
+	else 
+		#preparing multiple pattern
+		PATTERN=$(sed -e 's/ /\\|/g' <<< $@)
+
+		#read all stdin from pipe
+		while read  str ; 
+		do 
+			STR+=$str"\n"	
+		done
+
+		#execute command depending on flags
+		if [ -z $FLAGS ] ; then 
+		#echo -e print with newlines char, sed '$d' - delete last \n char, sed between range
+			echo -e $STR | sed '$d' | grep "$PATTERN"; 
+		else 
+			echo -e $STR | sed '$d' | grep "$FLAGS" "$PATTERN"; 
+		fi	 
+	fi
+
+}
+ 
+grep_lines_regex()
+{
+
+	if [ $# -eq 0  ]; then
+		return 2
+	fi 
+
+	FLAGS=""
+	
+	case "$1" in
+		--help | -h)
+				helpmenu
+				return 0
+				;;
+		-r )
+				FLAGS='-v'
+				shift
+				;;
+		-*) return 2
+	esac
+
+	#standard use without pipe option
+  	if [ -t 0 ] ; then 
+
+		#drop last element as a file 
+		array=( "$@" )
+		unset "array[${#array[@]}-1]"
+
+		#prepare multiple pattern 
+		PATTERN=$(sed -e 's/ /|/g' <<< "${array[@]}")
+
+		#execute command depending on flags
+		if [ -z $FLAGS ] ; then 
+			grep -E "$PATTERN" "${@: -1}" ; 
+		else 
+			grep -E "$FLAGS" "$PATTERN" "${@: -1}" ; 
+		fi
+
+	# run with pipe stdin
+	else 
+		#prepare pattern
+		PATTERN=$(sed -e 's/ /|/g' <<< $@)
+		
+		#read all provided text
+		while read  str ; 
+		do 
+			STR+=$str"\n"		
+		done 
+
+		#execute command depending on flags
+		if [ -z $FLAGS ] ; then 
+		#echo -e print with newlines char, sed '$d' - delete last \n char, sed between range
+			echo -e $STR | sed '$d' | grep -E "$PATTERN"; 
+		else 
+			echo -e $STR | sed '$d' | grep -E "$FLAGS" "$PATTERN"; 
+		fi
+	fi
+}
+
+
+
+#this function use sed with regex range between two pattern
+grep_lines_range()
+{
+
+	if [ $# -eq 0  ]; then
+		return 2
+	fi 
+
+	FLAGS=""
+	
+	case "$1" in
+		--help | -h)
+				helpmenu
+				return 0
+				;;
+		-r )
+				FLAGS='-v'
+				shift
+				;;
+		-*) return 2
+	esac
+
+	STR=""
+	#standard use without pipe option
+  	if [ -t 0 ] ; then 
+		if [ -z $FLAGS ] ; then 
+			sed -n  "/"$1"/,/"$2"/p" "${@: -1}" ; 
+		else 
+			sed -n  "/"$1"/,/"$2"/!p" "${@: -1}" ; 
+		fi
+	# run with pipe stdin
+	else
+
+		#read all provided text
+		while read  str ; 
+		do 
+			STR+=$str"\n"	
+		done 
+
+		#execute command depending on flags
+		if [ -z $FLAGS ] ; then
+			#echo -e print with newlines char, sed '$d' - delete last \n char, sed between range
+			echo -e $STR | sed '$d' | sed -n  "/"$1"/,/"$2"/p"  ; 
+		else 
+			echo -e $STR | sed '$d' | sed -n  "/"$1"/,/"$2"/!p"  ; 
+		fi	
+	fi
+}
+
+
+#temporary function
+grep_lines_range_temp()
+{
+
+	if [ $# -eq 0  ]; then
+		return 2
+	fi 
+
+	FLAGS=""
+	
+	case "$1" in
+		--help | -h)
+				helpmenu
+				return 0
+				;;
+		-r )
+				FLAGS='-v'
+				shift
+				;;
+		-*) return 2
+	esac
+
+	#standard use without pipe option
+  	if [ -t 0 ] ; then 
+		#drop last element as a file 
+		array=( "$@" )
+		unset "array[${#array[@]}-1]"
+
+		#execute command depending on flags
+		if [ -z $FLAGS ] ; then 
+			grep -E $1"(.*?)"$2 "${@: -1}" ; 
+		else 
+			grep -E "$FLAGS" $1"(.*?)"$2 "${@: -1}" ; 
+		fi
+	# run with pipe stdin
+	STR=""
+	else
+		#read all provided text
+		while read  str ; 
+		do 
+			STR+=$str"\n"		
+		done 
+
+		#execute command depending on flags
+		if [ -z $FLAGS ] ; then 
+			echo -e $STR | sed '$d' | grep -E $1"(.*?)"$2; 
+		else 
+			echo -e $STR | sed '$d' | grep -E "$FLAGS" $1"(.*?)"$2 ; 
+		fi
+	fi
+	
+}
+
+#test function
+grep_test()
+{
+	fail=0
+	
+	echo /proc/cpuinfo | grep_lines CPU > /dev/null 2>&1
+	if test $? -ne 1; then
+        echo "Pattern grep_lines : Wrong status code, test \#1 failed"
+        fail=1
+	fi
+	
+	grep_lines -r 1 2 3 4 5 6 7 8 9 0 /dev/null > /dev/null 2>&1
+	if test $? -ne 0; then
+        echo "Pattern grep_lines : Wrong status code, test \#2 failed"
+        fail=1
+	fi
+
+	cat /proc/cpuinfo | grep_lines processor cache vendor > /dev/null 2>&1
+	if test $? -ne 0; then
+        echo "Pattern grep_lines : Wrong status code, test \#3 failed"
+        fail=1
+	fi
+
+	echo "" | grep_lines > /dev/null 2>&1
+	if test $? -ne 2; then
+        echo "Pattern grep_lines : Wrong status code, test \#4 failed"
+        fail=1
+	fi
+
+	echo "" | grep_lines -82 > /dev/null 2>&1
+	if test $? -ne 2; then
+        echo "Pattern grep_lines : Wrong status code, test \#5 failed"
+        fail=1
+	fi
+
+	ip a | grep_lines_regex '([0-9]{1,3}\.){3}[0-9]{1,3}' '([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})' > /dev/null 2>&1
+	if test $? -ne 0; then
+        echo "Pattern grep_lines_regex : Wrong status code, test \#6 failed"
+        fail=1
+	fi
+
+	ip a | grep_lines_regex -r "([0-9]{1,3}\.){3}[0-9]{1,3}" "([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})" > /dev/null 2>&1
+	if test $? -ne 0; then
+        echo "Pattern grep_lines_regex : Wrong status code, test \#7 failed"
+        fail=1
+	fi
+	
+	ip a | grep_lines_regex '(][]' > /dev/null 2>&1
+	if test $? -ne 2; then
+        echo "Pattern grep_lines_regex : Wrong status code, test \#8 failed"
+        fail=1
+	fi
+	
+	cat /proc/cpuinfo | grep_lines_range processor cache > /dev/null 2>&1
+	if test $? -ne 0; then
+        echo "Pattern grep_lines_range : Wrong status code, test \#9 failed"
+        fail=1
+	fi
+
+	cat /proc/meminfo | grep_lines_range '[]'Active > /dev/null 2>&1
+	if test $? -ne 1; then
+        echo "Pattern grep_lines_range : Wrong status code, test \#10 failed"
+        fail=1
+	fi
+	
+	grep_lines_range NOFILE NOFILE /dev/NULL > /dev/null 2>&1
+	if test $? -ne 2; then
+        echo "Pattern grep_lines_range : Wrong status code, test \#11 failed"
+        fail=1
+	fi
+
+	return $fail
+}
+
+
+
